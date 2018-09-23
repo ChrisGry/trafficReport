@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" type="text/css" href="http://www.jq22.com/jquery/bootstrap-3.3.4.css">
+    <link rel="stylesheet" type="text/css" href="<?php echo base_url('style/reset.css')?>">
+    <link rel="stylesheet" type="text/css" href="<?php echo base_url('style/dataTables.bootstrap.css')?>">
+
+    <script type="text/javascript" src="<?php echo base_url('style/js/jquery-1.11.0.min.js');?>"></script>
+    <script type="text/javascript"  src="<?php echo base_url('style/js/xcConfirm.js')?>"></script>
+    <script type="text/javascript"  src="<?php echo base_url('style/js/jquery.nestable.js')?>"></script>
+    <script type="text/javascript" src="<?php echo base_url('style/js/apiv1.3.min.js')?>"></script>
+    <script type="text/javascript" src="<?php echo base_url('style/js/AreaRestriction.js')?>"></script>
+    <script type="text/javascript" src="<?php echo base_url('style/js/html2canvas.js')?>"></script>
+    <link rel="stylesheet" type="text/css" href="<?php echo base_url('style/bmap.css')?>"/>
+    <script type="text/javascript"  src="<?php echo base_url('style/js/awesomplete.min.js')?>"></script>
+
+</head>
+<body onload="">
+<div class="container" style="width: 94%;">
+    <?require_once('include/header.html')?>
+    <div class="row">
+        <div class="col-sm-12">
+            <label class="label-font">路名：<?=$road->roadName?>&nbsp&nbsp&nbsp编号：<?=$road->roadNo?></label>
+            <input type="hidden" name="start" value="<?=$road->start?>"/>
+            <input type="hidden" name="end" value="<?=$road->end?>"/>
+        </div>
+    </div>
+    <div class="left_text">
+        <div class="row">
+            <div class="col-sm-12">
+                <ul class="breadcrumb">
+                    <?php foreach($roadSeq as $seq):?>
+                    <li>
+                        <a href="#"><?=$seq->road_seq?></a> <span class="divider">-></span>
+                    </li>
+                    <?php endforeach;?>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-12">
+                <div id="container"></div>
+            </div>
+        </div>
+
+    </div>
+    <div class="right_text">
+        <div class="row">
+            <div class="col-sm-12 btn-group">
+                <button class="btn" type="button" onclick="saveCurrent()">保存当前状态</button>
+                <button class="btn" type="button" onclick="saveRoad()">完成</button>
+
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-12 radio-group">
+                <div>
+                    <input type="radio" name="redirect" id="redirect1" value="1" checked>
+                    <label for="redirect1">正向</label>
+                </div>
+                <div>
+                    <input type="radio" name="redirect" id="redirect2" value="0">
+                    <label for="redirect2">反向</label>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-12 checkbox-group" style="    padding: 0px 25px;">
+                <div class="dd" id="nestable">
+
+                    <ol  class="dd-list">
+                        <?php foreach($tiles as $tile):?>
+                        <li class="dd-item" data-id="<?=$tile->id?>">
+                            <div class="dd-handle"><?=$tile->id?></div>
+                        </li>
+                        <?php endforeach;?>
+
+                    </ol>
+                </div>
+                <form id="road">
+                    <textarea id="nestable-output" name="tiles" readonly></textarea>
+                    <input type="hidden" name="roadId" value="<?=$road->roadId?>" />
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+<input type="hidden" name="lng" value=""/>
+<input type="hidden" name="lat" value=""/>
+<script type="text/javascript" src="<?php echo base_url('style/main.js')?>"></script>
+<script type="text/javascript">
+    $(function(){
+
+        var lnglat = "<?php echo $init_center;?>".split(",");
+        var lng = parseFloat(lnglat[0]);
+        var lat = parseFloat(lnglat[1]);
+        $('input[name="lng"]').val(lng);
+        $('input[name="lat"]').val(lat);
+        newMap(lng,lat);
+
+        var sex = "<?php echo $direticon?>";
+        $("input[name='directions']").val(parseInt(sex));
+        $(":radio[name='redirect'][value='" + parseInt(sex) + "']").prop("checked", "checked");
+    });
+
+</script>
+<script type="text/javascript" src="<?php echo base_url('style/js/draw.js')?>"></script>
+<div class="xcConfirm" style="display: none">
+    <div class="xc_layer">
+    </div>
+    <div class="popBox">
+        <div class="ttBox">
+            <a class="clsBtn"></a>
+            <span class="tt"></span>
+        </div>
+        <div class="row">
+            <!--<div class="col-sm-12">-->
+                <!--<span style="font-weight: normal;position: relative;left: 100px;top: 11px;"><br>-->
+                <!--</span>-->
+            <!--</div>-->
+            <div class="col-sm-12">
+                <input type="text" value="" id="tip-input" placeholder="说明：如果有交叉点，请单击添加交叉点按钮，按钮打勾后，点击像素点，选择道路，点击保存之后是所有的点都保存下来" style="font-weight: normal;position: relative;margin-top: 16px;margin-left: 10%;width: 81%;" disabled>
+            </div>
+        </div>
+
+
+        <div class="txtBox">
+            <div class="column1">
+                <canvas id="panel" width="256" height="256" class="panel_img"></canvas>
+            </div>
+
+            <form id="cluster-points">
+                <div class="column2">
+                        像素点
+                        <div class="dd" id="nestable2"><ol class="dd-list" id="points"></ol></div>
+                        <input type="hidden" name="roadId" value="<?=$road->roadId?>" />
+                        <input type="hidden" name="tile_x" value="" />
+                        <input type="hidden" name="tile_y" value="" />
+                        <input type="hidden" name="directions" value="0">
+                        <input type="hidden" name="img" value="">
+                </div>
+
+                <div class="column2">
+                    交叉点
+                    <div class="dd" id="nestable3"><ol class="dd-list" id="jiaocha"></ol></div>
+                    <select class="form-control" name="jiaocha_road">
+                        <?php foreach($roads as $singleRoad):?>
+                        <option value="<?=$singleRoad->roadId?>"><?=$singleRoad->roadName?></option>
+                        <?php endforeach;?>
+                    </select>
+                </div>
+                <div class="column2">
+                    <textarea id="nestable2-output" name="points" readonly></textarea>
+                    <textarea id="nestable3-output" name="jiaochas" readonly></textarea>
+                </div>
+            </form>
+
+
+            <div style="    position: absolute;right: 8%;top: 40%;">
+                <div class="fuxuan">
+                <input type="checkbox" name="chk" class="chklist" checked="checked" />
+                <label class="chkbox" onclick="jiaochaPoint()">
+
+                    <span class="check-image"></span>
+
+                    <span class="radiobox-content">添加交叉点</span>
+
+                </label>
+                </div>
+                <!--<button class="btn" type="button" onclick="removePoint()">删除</button>-->
+            </div>
+
+
+        </div>
+        <div class="btnArea">
+            <div class="btnGroup">
+                <a class="sgBtn ok" onclick="savePoint()">保存</a>
+                <a class="sgBtn cancel" onclick="reset()">取消</a>
+            </div>
+        </div>
+    </div>
+    <input type="hidden" name="imgurl" value="" id="imgUrl"/>
+    <input type="hidden" name="tileId" value="" id="tileid"/>
+
+    <div id="point-cluster"></div>
+</div>
+<script type="text/javascript">
+
+    $(document).ready(function()
+    {
+        var updateOutput = function(e)
+        {
+            var list   = e.length ? e : $(e.target),
+                output = list.data('output');
+            if (window.JSON) {
+                output.val(window.JSON.stringify(list.nestable('serialize')));//, null, 2));
+            } else {
+                output.val('JSON browser support required for this demo.');
+            }
+        };
+        $('#nestable').nestable({
+            group: 1
+        }).on('change', updateOutput);
+        $('#nestable2').nestable({
+            group: 1
+        }).on('change', updateOutput);
+        $('#nestable3').nestable({
+            group: 1
+        }).on('change', updateOutput);
+        updateOutput($('#nestable').data('output', $('#nestable-output')));
+        updateOutput($('#nestable2').data('output', $('#nestable2-output')));
+        updateOutput($('#nestable3').data('output', $('#nestable3-output')));
+        $('#nestable-menu').on('click', function(e)
+        {
+            var target = $(e.target),
+                action = target.data('action');
+            if (action === 'expand-all') {
+                $('.dd').nestable('expandAll');
+            }
+            if (action === 'collapse-all') {
+                $('.dd').nestable('collapseAll');
+            }
+
+        });
+
+        $("input[name='redirect']").click(function(){
+            $("input[name='directions']").val($(this).val());
+            var roadid= $('input[name="roadId"]').val();
+            var direction = $(this).val();
+            window.location.href="<?php echo site_url('drawroute?id=')?>"+roadid+"&dire="+direction;
+        });
+
+
+
+    });
+
+</script>
+</body>
+</html>

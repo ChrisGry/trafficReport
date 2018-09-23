@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <title>交通模型初始化</title>
+    <script type="text/javascript" src="<?php echo base_url('style/js/jquery-1.11.0.min.js');?>"></script>
+    <script type="text/javascript" src="<?php echo base_url('style/js/draw.js')?>"></script>
+    <link rel="stylesheet" type="text/css" href="<?php echo base_url('style/draw.css')?>">
+    <script type="text/javascript" src="<?php echo base_url('style/js/jquery.js')?>"></script>
+    <script type="text/javascript" src="<?php echo base_url('style/js/foldpanel.min.js')?>"></script>
+    <script type="text/javascript" src="http://api.map.baidu.com/api?type=quick&ak=百度密钥&v=1.0"></script>
+    <script type="text/javascript" src="http://api.map.baidu.com/api?key=&v=1.1&services=true"></script>
+    <script type="text/javascript"  src="<?php echo base_url('style/js/awesomplete.min.js')?>"></script>
+    <script type="text/javascript"  src="<?php echo base_url('style/js/xcConfirm.js')?>"></script>
+</head>
+<body>
+<canvas id="glasscan" width="50" height="50"></canvas>
+<div class="tip">
+    <input id="tip" type="text" value="" placeholder="提示信息" disabled/>
+</div>
+<div class="container">
+    <div class="column1">
+        <canvas id="panel" width="256" height="256" class="panel_img"></canvas>
+    </div>
+
+    <div class="column2">
+        <div>当前瓦片坐标：x:<?php echo $tile->clipX;?>&nbspy:<?php echo $tile->clipY;?></div>
+        <div>坐标:</div>
+        <div>x: <input type="text" id="xVal" value="0"/></div>
+        <div>y: <input type="text" id="yVal" value="0"/></div>
+        <div>经纬度</div>
+        <div>经度: <input type="text" id="lonVal" value="<?php echo $tile->longitude_right;?>"/></div>
+        <div>维度: <input type="text" id="latVal" value="<?php echo $tile->latitude_right;?>"/></div>
+        <hr/>
+        <div><input type="button" value="下一张瓦片" id="swImage" class="next swImage" disabled/></div>
+    </div>
+    <div class="column4">
+        勾选元素后，点击按钮删除
+        <div>
+            <input type="checkbox" value="" class="opt-button swImage" id="all"/>
+            <div><input type="button" value="删除" class="opt-button swImage" onClick="removePoint()"/></div>
+            <div><input type="button" value="保存" class="opt-button swImage save-button" onClick="savePoint(this)"/></div>
+        </div>
+        <form id="cluster-points">
+            <div id="points">
+            </div>
+            <input type="hidden" name="tileId" value="<?=$tile->id?>">
+            <input type="hidden" name="routeName" value="">
+            <input type="hidden" name="directions" value="">
+            <input type="hidden" name="img" value="">
+            <input type="hidden" name="x" value="<?php echo $tile->clipX;?>">
+            <input type="hidden" name="y" value="<?php echo $tile->clipY;?>">
+        </form>
+    </div>
+
+
+</div>
+<div class="container" style="width: 730px">
+
+    <div class="column3">
+        <div>点群列表：</div>
+
+        <div class="left_text">
+            <dl class="foldpanel" id="my-foldpanel">
+                <?php $i =0;foreach($clusters as $cluster):
+                    if(count($cluster)<30){
+                        continue;
+                    }
+                    $i++;
+                ?>
+                <dt onclick="showPoint(this)" class="point-cluster" id="<?php echo $i?>">
+                    <input type="hidden" name="cluster" class="cluster" value="<?php echo $i?>" checked="checked" >
+                    点群[<?php echo $i?>
+
+                </dt>
+                <dd>
+                    <?php foreach($cluster as $point):?>
+                    <div class="point_checkbox_<?php echo $i?>">
+                        <input type="hidden" name="" class="point_<?=$i?>"  x="<?=$point[0]?>" y="<?=$point[1]?>" value="[<?=$point[0]?>,<?=$point[1]?>]">
+                    </div>
+                    <?php endforeach; ?>
+                    <div class="info-text">
+                        道路名称：<input type="text" class="awesomplete" list="mylist" name="routeName" value="" placeholder="填写路名" style=" width: 70%;">
+                        <datalist id="mylist">
+                            <?php foreach($routes as $route):?>
+                            <option><?=$route->routeName?></option>
+                            <?php endforeach; ?>
+                        </datalist>
+                    </div>
+                    <div class="info-tip">
+                        <input type="radio" name="direction1" value="0">正向
+                        <input type="radio" name="direction1" value="1">反向
+                        <input type="hidden" name="tileIds" value="<?=$tile->id?>">
+                    </div>
+
+                </dd>
+                <?php endforeach; ?>
+            </dl>
+        </div>
+        <div class="right_text">
+            <div>
+                <p>G1/S1开头，正向为趋近北京/长沙，反向为离开北京/长沙；</br>
+                    G2/S2开头，正向为自南向北，反向为自北向南；</br>
+                    G3/S3开头，正向为自西向东，反向为自东向西；</br>
+                    （京广）高速公路，正向为自起点（北京）向终点（广州），反之为反向。</br></p>
+            </div>
+            <div class="button-cl"><input type="button" value="分析瓦片" class="anlysis swImage" onClick="analysis()"/></div>
+            <div class="button-cl"><input type="button" value="查找路名" class="anlysis swImage" onClick="getAddress()"/></div>
+            <div class="button-cl"><input type="button" value="添加像素点" id="" class="anlysis swImage addpoint" onclick="addpoint(this)"/></div>
+            <div class="button-cl"><input type="button" value="添加点群" id="addcluster" class="anlysis swImage" /></div>
+            <div class="button-cl"><input type="button" value="交叉点标记" class="anlysis swImage" onclick="jiaocha()"/></div>
+            <div class="button-cl"><input type="button" value="合并点群" id="addAllPoints" class="anlysis swImage" /></div>
+        </div>
+
+
+    </div>
+
+    <input type="hidden" id="imgUrl" value="<?php echo $tile->imgUrl;?>">
+
+    <div style="clear:both;"></div>
+    <div class="column1">
+        <!--百度地图容器-->
+        <div style="width:256px;height:256px;" class="panel_img" id="dituContent"></div>
+    </div>
+    <div class="column5">
+        交叉点标记
+        <div>
+            <div><input type="button" value="保存交叉点" class="opt-button swImage save-button" onClick="savejiaochaPoint(this)"/></div>
+        </div>
+        <form id="jiaocha-Cluster">
+        <div class="route-box">
+            交叉路选择
+        </div>
+        <div class="jiaocha-point">
+        </div>
+        </form>
+    </div>
+
+
+</div>
+<script type="text/javascript">
+    $(function(){
+        $('dl#my-foldpanel').foldpanel({
+
+            init: false,			// 初始第一个展开, 默认为 true
+
+            time: 100,			// panel展开动画时间, 默认为 100ms
+
+            dbclose: true,		// 在此点击关闭, 默认为 true
+
+        });
+
+    });
+
+    $("input[name='direction1']").click(function(){
+        $("input[name='directions']").val($(this).val());
+    });
+
+    $('#swImage').click(function(e) { // switching images
+
+        var url="<?php echo site_url('drawroute/nexttile?tileid=').$tile->id;?>";
+        window.location.href=url;
+    });
+    function addpoint(obj){
+        var id =obj.id;
+        console.log(id);
+        var x = $('#xVal').val();
+        var y = $('#yVal').val();
+        if(x==0 && y==0){
+            return;
+        }
+        var innerPoints ="<input type='hidden' name=''  value='["+x+","+y+"]' class='point_"+id+"' x='"+x+"' y='"+y+"'>";
+        var innerHtml = "<div  class='point-checkbox' onclick='jiaochaPoint("+x+","+y+")'><input type='checkbox' name='cluster'><span>["+x+","+y+"]</span></div>";
+        $("#points").append(innerHtml);
+        $(".point_checkbox_"+id).append(innerPoints);
+    }
+
+    function jiaocha(){
+        $("#tip").val("请先点击交叉点，再点击交叉点标记按钮");
+        var x = $('#xVal').val();
+        var y = $('#yVal').val();
+        if(x==0 && y==0){
+            $("#tip").val("请选择非0像素点");
+            return;
+        }
+        var innerHtml = "<div  class='point-checkbox' onclick='selectPoint("+x+","+y+")'><input type='checkbox' name='jiaochadian' value='["+x+","+y+"]' checked><span>["+x+","+y+"]</span></div>";
+        $(".jiaocha-point").append(innerHtml);
+
+        $('.awesomplete').each(function () {
+            if($(this).val()==''){
+                return;
+            }
+            var innerHtml2 = "<div  class='route-checkbox'><input type='checkbox' name='route-checkbox' value='"+$(this).val()+"'>"+$(this).val()+"</div>";
+            $('.route-box').append(innerHtml2);
+        });
+
+    }
+
+    function S4() {
+        return (((1+Math.random())*0x10000)|0).toString(16).substring(1);
+    }
+    function guid() {
+        return (S4()+S4()+"-"+S4()+"-"+S4()+"-"+S4()+"-"+S4()+S4()+S4());
+    }
+
+    $("#addAllPoints").click(function(){
+        var txt=  "";
+        var option = {
+            title: "合并点群",
+            btn: parseInt("0011",2),
+            onOk: function(){
+                console.log("确认");
+            }
+        }
+        window.wxc.xcConfirm(txt, "custom", option);
+    });
+
+    $('#addcluster').click(function(e) { // switching images
+        var id = guid();
+        var innerHtml = "<dt onclick='showPoint(this)' id='"+id+"'><input type='radio' name='cluster' class='cluster' value='"+id+"' checked='checked' >点群["+id+"]</dt><dd style='display:block !important'><div class='point_checkbox_"+id+"'></div><div class='info-text'>道路名称：<input type='text' name='routeName' value='' placeholder='填写路名' style='' width: 70%;'>"+
+            "</div> <div class='info-tip'> <input type='radio' name='direction' value='0'>正向 <input type='radio' name='direction' value='1'>反向 <input type='hidden' name='tileId' value=''<?=$tile->id?>'> </div></dd>"
+        $("#my-foldpanel").append(innerHtml);
+
+    });
+
+    function analysis(){
+        $(".cluster").each(function(i){
+            var index_point = i+1;
+            var random_color = '#'+('00000'+(Math.random()*0x1000000<<0).toString(16)).slice(-6);
+            $(this).parent().css("color",random_color);
+            var point = ".point_"+index_point;
+            $(point).each(function(){
+                var x = $(this).attr("x");
+                var y = $(this).attr("y");
+                ctx.fillStyle=random_color;
+                ctx.fillRect(x,y,1,1);
+            });
+        });
+    }
+
+    function getAddress(){
+        var lng = $("#lonVal").val();
+        var lat = $("#latVal").val();
+        var map = new BMap.Map("allmap");
+        var point = new BMap.Point(lng,lat);
+        var gc = new BMap.Geocoder();
+        gc.getLocation(point, function(rs){
+            var addComp = rs.addressComponents;
+            $("input[name='routeName']").val(addComp.province + addComp.city+ addComp.district+ addComp.street+ addComp.streetNumber);
+        });
+        initMap(lng,lat);//创建和初始化地图
+    }
+
+    $("#all").click(function(){
+        if(this.checked){
+            $("#points .point-checkbox").trigger("click");
+            $("#points :checkbox").prop("checked", true);
+        }else{
+            $("#points :checkbox").prop("checked", false);
+        }
+    });
+
+    function showPoint(obj) {
+        var a= obj.id;
+        $("#points").html("");
+        var point = ".point_"+a;
+        $(point).each(function(){
+            var x = $(this).attr("x");
+            var y = $(this).attr("y");
+            var innerHtml = "<div  class='point-checkbox' onclick='selectPoint("+x+","+y+")'><input type='checkbox' name='point[]' value='["+x+","+y+"]'><span>["+x+","+y+"]</span></div>";
+            $("#points").append(innerHtml);
+        });
+        $(".addpoint").attr("id",a);
+        $(".save-button").attr("id",a);
+    }
+
+    function savePoint(obj) {
+        var a= obj.id;
+        $("input[name='img']").val(convertCanvasToImage());
+        var form_id ='#cluster-points';
+        console.log($(form_id).serialize());
+        $.ajax({
+            cache: true,
+            type: "POST",
+            url:"<?php echo site_url('drawroute/savePoints')?>",
+            data:$(form_id).serialize(),// 你的formid
+            async: true,
+            error: function(request) {
+                alert(request);
+            },
+            success: function(data) {
+                $('#swImage').removeAttr("disabled");
+                alert(data);
+
+            }
+        });
+
+    }
+
+    function savejiaochaPoint(obj) {
+        var form_id ='#jiaocha-Cluster';
+        var route_value ="";
+        $('input[name="route-checkbox"]:checked').each(function(){
+            route_value += $(this).val()+",";
+        });
+        var point_value="";
+        $('input[name="jiaochadian"]').each(function(){
+            point_value += $(this).val()+",";
+        });
+        var tileId =$('input[name="tileIds"]').val();
+        var dataString = {"allRoute" : route_value,"allPoint" : point_value,"tileId":tileId};
+        $.ajax({
+            type: "POST",
+            url: "<?php echo site_url('drawroute/saveJXPoints')?>",
+            data: dataString,
+            dateType:"json",
+            success: function(data) {
+                if(data==1){
+                    $('#tip').val("保存成功");
+                }
+
+            },
+            error: function(xhr) {
+                //中间发生异常，具体查看xhr.responseText
+                alert("error:" + xhr.responseText);
+            }
+        });
+
+
+    }
+
+    function convertCanvasToImage() {
+        var image = new Image();
+        image.src = canvas.toDataURL("image/jpg");
+        return image.src;
+    }
+
+    function removePoint(){
+        $("#cluster-points input:checkbox:checked").each(function() {
+            $(this).next("span").remove();
+            $(this).remove();
+        });
+    }
+
+    function selectPoint(x,y){
+        ctx.fillStyle="#f70505";
+        ctx.fillRect(x,y,2,2);
+    }
+
+    //创建和初始化地图函数：
+    function initMap(lng,lat){
+        createMap(lng,lat);//创建地图
+        setMapEvent();//设置地图事件
+        addMapControl();//向地图添加控件
+        addMarker(lng,lat);
+    }
+
+    //创建地图函数：
+    function createMap(lng,lat){
+        var map = new BMap.Map("dituContent");//在百度地图容器中创建一个地图
+        var point = new BMap.Point(lng,lat);//定义一个中心点坐标
+        map.centerAndZoom(point,16);//设定地图的中心点和坐标并将地图显示在地图容器中
+        window.map = map;//将map变量存储在全局
+    }
+
+    //地图事件设置函数：
+    function setMapEvent(){
+        map.enableDragging();//启用地图拖拽事件，默认启用(可不写)
+        map.enableScrollWheelZoom();//启用地图滚轮放大缩小
+        map.enableDoubleClickZoom();//启用鼠标双击放大，默认启用(可不写)
+        map.enableKeyboard();//启用键盘上下左右键移动地图
+    }
+
+    //地图控件添加函数：
+    function addMapControl(){
+        //向地图中添加缩放控件
+       // var ctrl_nav = new BMap.NavigationControl({anchor:BMAP_ANCHOR_TOP_LEFT,type:BMAP_NAVIGATION_CONTROL_LARGE});
+       // map.addControl(ctrl_nav);
+//        //向地图中添加比例尺控件
+        var ctrl_sca = new BMap.ScaleControl({anchor:BMAP_ANCHOR_BOTTOM_LEFT});
+        map.addControl(ctrl_sca);
+    }
+
+    //标注点数组
+    var markerArr;
+    //创建marker
+    function addMarker(lng,lat){
+        markerArr = [{title:"瓦片坐标",content:"我的备注",point:lng+"|"+lat,isOpen:0,icon:{w:21,h:21,l:0,t:0,x:6,lb:5}}
+        ];
+        for(var i=0;i<markerArr.length;i++){
+            var json = markerArr[i];
+            var p0 = json.point.split("|")[0];
+            var p1 = json.point.split("|")[1];
+            var point = new BMap.Point(p0,p1);
+            var iconImg = createIcon(json.icon);
+            var marker = new BMap.Marker(point,{icon:iconImg});
+            var iw = createInfoWindow(i);
+            var label = new BMap.Label(json.title,{"offset":new BMap.Size(json.icon.lb-json.icon.x+10,-20)});
+            marker.setLabel(label);
+            map.addOverlay(marker);
+            label.setStyle({
+                borderColor:"#808080",
+                color:"#333",
+                cursor:"pointer"
+            });
+
+            (function(){
+                var index = i;
+                var _iw = createInfoWindow(i);
+                var _marker = marker;
+                _marker.addEventListener("click",function(){
+                    this.openInfoWindow(_iw);
+                });
+                _iw.addEventListener("open",function(){
+                    _marker.getLabel().hide();
+                })
+                _iw.addEventListener("close",function(){
+                    _marker.getLabel().show();
+                })
+                label.addEventListener("click",function(){
+                    _marker.openInfoWindow(_iw);
+                })
+                if(!!json.isOpen){
+                    label.hide();
+                    _marker.openInfoWindow(_iw);
+                }
+            })()
+        }
+    }
+    //创建InfoWindow
+    function createInfoWindow(i){
+        var json = markerArr[i];
+        var iw = new BMap.InfoWindow("<b class='iw_poi_title' title='" + json.title + "'>" + json.title + "</b><div class='iw_poi_content'>"+json.content+"</div>");
+        return iw;
+    }
+    //创建一个Icon
+    function createIcon(json){
+        var icon = new BMap.Icon("http://app.baidu.com/map/images/us_mk_icon.png", new BMap.Size(json.w,json.h),{imageOffset: new BMap.Size(-json.l,-json.t),infoWindowOffset:new BMap.Size(json.lb+5,1),offset:new BMap.Size(json.x,json.h)})
+        return icon;
+    }
+
+</script>
+</body>
+</html>

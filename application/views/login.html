@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <title>登录</title>
+    <link rel="stylesheet" type="text/css" href="<?php echo base_url('style/draw.css')?>">
+    <script type="text/javascript" src="<?php echo base_url('style/js/jquery-1.11.0.min.js');?>"></script>
+</head>
+<body onload="">
+<div class="container-login">
+
+    <div class="center_login" style="border: 1px solid gray;height: 500px;">
+        <form id="login-form" class="form-login" role="form" novalidate="novalidate" method="post" action="<?php echo site_url('userlogin/usersignin')?>">
+            <div class="input-group">
+                <label for="username" class="am-u-sm-4 am-form-label">用户名:</label>
+                <input type="text" id="username" value="" required="" name="username" class="am-form-field am-round" >
+            </div>
+            <div class="input-group">
+                <label for="passwd" class="am-u-sm-4 am-form-label">密码:</label>
+                <input type="text" id="passwd" value="" required="" name="passwd" class="am-form-field am-round">
+            </div>
+            <div class="btn_submit input-group" style="text-align:center;margin-top: 12px;    margin-left: 17%;">
+                <button type="submit" style="font-size: 16px;width: 100px;" class="button button--ujarak button--border-medium button--round-s button--text-thick">登录</button>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>
